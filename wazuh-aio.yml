@@ -4,6 +4,7 @@
   become: yes
   roles:
     - role: package-urls
+      source: "custom"
     - role: wazuh-indexer
     - role: wazuh-server
     - role: wazuh-dashboard
