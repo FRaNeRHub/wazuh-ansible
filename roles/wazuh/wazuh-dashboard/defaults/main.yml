@@ -29,3 +29,6 @@ indexer_admin_password: changeme
 dashboard_user: kibanaserver
 dashboard_password: changeme
 local_certs_path: "{{ playbook_dir }}/indexer/certificates"
+
+dashboards_multitenancy_enabled: false
+dashboards_multitenancy_tenants_preferred: ["Global", "Private"]

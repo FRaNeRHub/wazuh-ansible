@@ -16,6 +16,7 @@ try:
     from wazuh.rbac.orm import check_database_integrity
     from wazuh.security import (
         create_user,
+        edit_run_as,
         get_users,
         get_roles,
         set_user_role,
@@ -29,7 +30,7 @@ except Exception as e:
 def read_user_file(path=USER_FILE_PATH):
     with open(path) as user_file:
         data = json.load(user_file)
-        return data["username"], data["password"]
+        return data["username"], data["password"], data["run_as"]
 
 
 def db_users():
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     if not os.path.exists(USER_FILE_PATH):
         # abort if no user file detected
         sys.exit(0)
-    username, password = read_user_file()
+    username, password, run_as = read_user_file()
 
     # create RBAC database
     check_database_integrity()
@@ -79,14 +80,17 @@ if __name__ == "__main__":
         uid = users[username]
         roles = db_roles()
         rid = roles["administrator"]
+        crid = roles["cluster_admin"]
         set_user_role(
             user_id=[
                 str(uid),
             ],
             role_ids=[
                 str(rid),
+                str(crid)
             ],
         )
+        edit_run_as(user_id=str(uid), allow_run_as=bool(run_as))
     else:
         # modify an existing user ("wazuh" or "wazuh-wui")
         uid = initial_users[username]
@@ -96,6 +100,7 @@ if __name__ == "__main__":
             ],
             password=password,
         )
+        edit_run_as(user_id=str(uid), allow_run_as=bool(run_as))
     # disable unused default users
     #for def_user in ['wazuh', 'wazuh-wui']:
     #    if def_user != username:
