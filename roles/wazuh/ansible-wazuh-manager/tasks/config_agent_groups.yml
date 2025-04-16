@@ -1,0 +1,14 @@
+---
+  - name: Config agent groups
+    ansible.builtin.copy:
+      content: |
+        <agent_config>
+          <labels>
+            <label key="tenant">{{ item }}</label>
+          </labels>
+        </agent_config>
+      dest: /var/ossec/etc/shared/{{ item }}/agent.conf
+      owner: wazuh
+      group: wazuh
+      mode: '0660'
+    loop: "{{ agent_groups }}"

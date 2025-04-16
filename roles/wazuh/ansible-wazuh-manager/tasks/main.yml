@@ -376,5 +376,10 @@
     - ( agent_groups is defined) and ( agent_groups|length > 0)
   tags: molecule-idempotence-notest
 
+- name: Config agent groups
+  include_tasks: "config_agent_groups.yml"
+  when:
+    - "{{ agent_groups | length > 0 }}"
+
 - name: Run uninstall tasks
   include_tasks: uninstall.yml
