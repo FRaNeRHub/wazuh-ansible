@@ -19,3 +19,11 @@ kibanaserver:
   hash: "{{ dashboard_password }}"
   reserved: true
   description: "kibanaserver user"
+
+{% for item in internal_users | default([]) %}
+{{ item.username }}:
+  hash: "{{ item.password }}"
+  reserved: false
+  description: "{{ item.username }} user (tenant: {{ item.tenant }})."
+
+{% endfor %}

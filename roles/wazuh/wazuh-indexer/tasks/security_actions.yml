@@ -38,6 +38,26 @@
     name: wazuh-indexer
     state: restarted
 
+- name: Create custom tenant (agent groups) roles
+  blockinfile:
+    path: "{{ indexer_sec_plugin_conf_path }}/roles.yml"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+    append_newline: true
+    prepend_newline: true
+    block: |
+        {{ item | lower }}_read_role:
+          reserved: false
+          hidden: false
+          cluster_permissions:
+          - "cluster_composite_ops_ro"
+          index_permissions:
+          - index_patterns:
+            - "wazuh-*"
+            allowed_actions:
+            - "read"
+            dls: "{\"bool\": {\"filter\": [{\"match_phrase\": {\"agent.labels.tenant\": \"{{ item }}\"}}]}}"      
+  loop: "{{ agent_groups }}"
+
 - name: Copy the Opensearch security internal users template
   template:
     src: "templates/internal_users.yml.j2"
@@ -77,6 +97,53 @@
     vars:
       indexer_password_hash: "{{ indexer_kibanaserver_password_hashed.stdout_lines | last }}"
 
+  - name: Hash internal user passwords
+    include_tasks: hash_passwords.yml
+    loop: "{{ internal_users | default([]) }}"
+    vars:
+      user: "{{ item }}"
+
+  - name: Create custom user
+    uri:
+      url: "https://{{ target_address }}:{{ indexer_http_port }}/_plugins/_security/api/internalusers/{{ indexer_custom_user }}"
+      method: PUT
+      user: "admin" # Default Indexer user is always "admin"
+      password: "{{ indexer_admin_password }}"
+      body: |
+        {
+          "password": "{{ indexer_admin_password }}",
+          "backend_roles": ["{{ indexer_custom_user_role }}"]
+        }
+      body_format: json
+      validate_certs: no
+      status_code: 200,201,401
+      return_content: yes
+      timeout: 4
+    register: result
+    until: result.status in [200,201,401]
+    when:
+      - indexer_custom_user is defined and indexer_custom_user
+      - inventory_hostname == ansible_play_hosts[0]
+
+  - name: Create custom tenant read role mappings
+    blockinfile:
+      path: "{{ indexer_sec_plugin_conf_path }}/roles_mapping.yml"
+      marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+      append_newline: true
+      prepend_newline: true
+      block: |
+        {{ item | lower }}_read_role:
+          reserved: false
+          hidden: false
+          hosts: []
+          users:
+        {% for user in internal_users | selectattr('tenant', 'equalto', item) | map(attribute='username') | list %}
+          - "{{ user }}"
+        {% endfor %}
+          and_backend_roles: []
+          description: "{{ item }} read role mappings"
+    loop: "{{ agent_groups }}"
+
   - name: Initialize the Opensearch security index in Wazuh indexer
     command: >
       sudo -u wazuh-indexer OPENSEARCH_PATH_CONF={{ indexer_conf_path }}
@@ -93,27 +160,5 @@
     delay: 5
     register: result
     until: result.rc == 0
+    when: inventory_hostname == ansible_play_hosts[0]
 
-  when: inventory_hostname == ansible_play_hosts[0]
-
-- name: Create custom user
-  uri:
-    url: "https://{{ target_address }}:{{ indexer_http_port }}/_plugins/_security/api/internalusers/{{ indexer_custom_user }}"
-    method: PUT
-    user: "admin" # Default Indexer user is always "admin"
-    password: "{{ indexer_admin_password }}"
-    body: |
-      {
-        "password": "{{ indexer_admin_password }}",
-        "backend_roles": ["{{ indexer_custom_user_role }}"]
-      }
-    body_format: json
-    validate_certs: no
-    status_code: 200,201,401
-    return_content: yes
-    timeout: 4
-  register: result
-  until: result.status in [200,201,401]
-  when:
-    - indexer_custom_user is defined and indexer_custom_user
-    - inventory_hostname == ansible_play_hosts[0]
