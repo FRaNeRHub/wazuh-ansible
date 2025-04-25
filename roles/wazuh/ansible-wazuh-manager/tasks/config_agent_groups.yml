@@ -4,7 +4,7 @@
       content: |
         <agent_config>
           <labels>
-            <label key="tenant">{{ item }}</label>
+            <label key="group">{{ item }}</label>
           </labels>
         </agent_config>
       dest: /var/ossec/etc/shared/{{ item }}/agent.conf

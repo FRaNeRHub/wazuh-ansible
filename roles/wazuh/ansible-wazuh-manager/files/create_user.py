@@ -80,14 +80,12 @@ if __name__ == "__main__":
         uid = users[username]
         roles = db_roles()
         rid = roles["administrator"]
-        crid = roles["cluster_admin"]
         set_user_role(
             user_id=[
                 str(uid),
             ],
             role_ids=[
-                str(rid),
-                str(crid)
+                str(rid)
             ],
         )
         edit_run_as(user_id=str(uid), allow_run_as=bool(run_as))

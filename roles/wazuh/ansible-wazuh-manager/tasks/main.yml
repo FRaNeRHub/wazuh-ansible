@@ -342,6 +342,63 @@
     - wazuh_api_users is defined
     - wazuh_manager_config.cluster.node_type == "master"
 
+- name: Create API user policies and roles
+  block:
+    - name: Copy create_roles script
+      copy:
+        src: create_roles.py
+        dest: "{{ wazuh_dir }}/framework/scripts/create_roles.py"
+        owner: root
+        group: wazuh
+        mode: 0644
+
+    - name: Execute create_user script
+      script:
+        chdir: "{{ wazuh_dir }}/framework/scripts/"
+        cmd: create_roles.py --tenant "{{ item }}"
+        executable: "{{ wazuh_dir }}/framework/python/bin/python3"
+      with_items:
+        - "{{ agent_groups }}"
+
+    - name: Delete create_roles script
+      file:
+        path: "{{ wazuh_dir }}/framework/scripts/create_roles.py"
+        state: absent
+  tags:
+    - config_api_users
+  when:
+    - agent_groups is defined
+    - wazuh_manager_config.cluster.node_type == "master"
+
+- name: Create API user to role mappings
+  block:
+    - name: Copy user role mapping script
+      copy:
+        src: create_user_role_mappings.py
+        dest: "{{ wazuh_dir }}/framework/scripts/create_user_role_mappings.py"
+        owner: root
+        group: wazuh
+        mode: 0644
+
+    - name: Execute user role mapping script
+      script:
+        chdir: "{{ wazuh_dir }}/framework/scripts/"
+        cmd: create_user_role_mappings.py --role "{{ item.0 }}_read_role" --user "{{ item.1.username }}" --tenant "{{ item.1.tenant }}"
+        executable: "{{ wazuh_dir }}/framework/python/bin/python3"
+      with_items:
+        - "{{ agent_groups | product(internal_users) }}"
+      when: item.0 == item.1.tenant
+
+    - name: Delete create_roles script
+      file:
+        path: "{{ wazuh_dir }}/framework/scripts/create_user_role_mappings.py"
+        state: absent
+  tags:
+    - config_api_users
+  when:
+    - agent_groups is defined
+    - wazuh_manager_config.cluster.node_type == "master"
+
 - name: Agentless Hosts & Passwd
   template:
     src: agentless.j2

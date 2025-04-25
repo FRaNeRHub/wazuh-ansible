@@ -52,10 +52,29 @@
           - "cluster_composite_ops_ro"
           index_permissions:
           - index_patterns:
-            - "wazuh-*"
+            - "*"
             allowed_actions:
             - "read"
-            dls: "{\"bool\": {\"filter\": [{\"match_phrase\": {\"agent.labels.tenant\": \"{{ item }}\"}}]}}"      
+          - index_patterns:
+            - "wazuh-alerts*"
+            allowed_actions:
+            - "read"
+            dls: "{\"bool\": {\"must\": {\"match\": {\"agent.labels.group\": \"{{ item }}\"}}}}"
+          - index_patterns:
+            - "wazuh-monitoring*"
+            allowed_actions:
+            - "read"
+            dls: "{\"bool\": {\"must\": {\"match\": {\"group\": \"{{ item }}\"}}}}"
+          - index_patterns:
+            - "wazuh-statistics*"
+            allowed_actions:
+            - "read"
+            dls: "{\"bool\": {\"must\": {\"match\": {\"agent.labels.group\": \"{{ item }}\"}}}}"
+          tenant_permissions:
+          - tenant_patterns:
+            - "global_tenant"
+            allowed_actions:
+            - "kibana_all_read"
   loop: "{{ agent_groups }}"
 
 - name: Copy the Opensearch security internal users template
@@ -143,6 +162,7 @@
           and_backend_roles: []
           description: "{{ item }} read role mappings"
     loop: "{{ agent_groups }}"
+    when: internal_users | length > 0
 
   - name: Initialize the Opensearch security index in Wazuh indexer
     command: >
